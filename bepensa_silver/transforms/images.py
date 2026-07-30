@@ -19,7 +19,8 @@ def build(spark: SparkSession, visits_silver: DataFrame) -> DataFrame:
         spark.table(f"{BRONZE_APP}.images")
         .filter(F.col("is_active") == True)
         .join(visits_silver.select("visit_id"), on="visit_id", how="inner")
-        .select(
+        .select(}
+            "img_id",
             "visit_id",
             "original_url",
             "subscene_type",
