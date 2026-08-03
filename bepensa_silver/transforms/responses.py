@@ -5,8 +5,8 @@ from ..config import BRONZE_APP
 
 
 def _auto_responses(spark: SparkSession, visits_silver: DataFrame) -> DataFrame:
-    """Respuestas automáticas de preguntas activas (excluye puertas/rack),
-    acotadas al universo de visitas silver."""
+    """Respuestas automáticas de preguntas activas (excluye puertas/rack/
+    carriles/góndola), acotadas al universo de visitas silver."""
     questions = spark.table(f"{BRONZE_APP}.questions")
     return (
         spark.table(f"{BRONZE_APP}.automatic_responses").alias("a")
@@ -15,6 +15,11 @@ def _auto_responses(spark: SparkSession, visits_silver: DataFrame) -> DataFrame:
             ~(
                 F.lower(F.col("q.question_text")).like("%puertas%")
                 | F.lower(F.col("q.question_text")).like("%rack%")
+                | F.lower(F.col("q.question_text")).like("%carriles%")
+                # NORMALIZE(LOWER(x), NFD) LIKE '%gondola%' es equivalente a
+                # lower(x) like '%gondola%': con un patrón sin diacríticos, NFD
+                # no altera el match (ver nota abajo sobre "góndola" con tilde).
+                | F.lower(F.col("q.question_text")).like("%gondola%")
             )
         )
         .filter(F.col("q.is_active") == True)
@@ -25,6 +30,7 @@ def _auto_responses(spark: SparkSession, visits_silver: DataFrame) -> DataFrame:
             F.col("a.answer").alias("answer"),
             F.col("completed_at_ts").alias("completed_at"),
             F.col("q.task_id").alias("task_id"),
+            F.col("q.question_text").alias("question_text"),
             F.col("q.question_type").alias("question_type"),
             F.col("a.aut_resp_id").alias("resp_id"),
         )
@@ -47,6 +53,7 @@ def _user_responses(spark: SparkSession) -> DataFrame:
             F.col("r.created_at").alias("created_at"),
             F.col("r.value").alias("value"),
             F.col("q.task_id").alias("task_id"),
+            F.col("q.question_text").alias("question_text"),
             F.col("q.question_type").alias("question_type"),
             F.col("r.resp_id").alias("resp_id"),
         )
@@ -80,6 +87,8 @@ def build(spark: SparkSession, visits_silver: DataFrame, tasks: DataFrame) -> Da
             F.coalesce(F.col("a.question_id"), F.col("u.question_id")).alias("question_id"),
             F.coalesce(F.col("a.resp_id"), F.col("u.resp_id")).alias("resp_id"),
             F.coalesce(F.col("a.task_id"), F.col("u.task_id")).alias("task_id_key"),
+            qtype.alias("question_type"),
+            F.coalesce(F.col("a.question_text"), F.col("u.question_text")).alias("question_text"),
             F.when(auto_wins, F.col("a.answer")).otherwise(F.col("u.value")).alias("ultima_respuesta"),
             F.when(auto_wins, F.lit("auto")).otherwise(F.lit("user")).alias("fuente"),
             F.when(F.col("a.completed_at").isNull(), F.col("u.created_at"))
@@ -95,9 +104,14 @@ def build(spark: SparkSession, visits_silver: DataFrame, tasks: DataFrame) -> Da
         .join(tasks.alias("t"), F.col("task_id_key") == F.col("t.task_id"), "inner")
         .select(
             "visit_id",
+            "user_id",
+            "store_id",
             "resp_id",
+            F.col("t.task_id").alias("task_id"),
             F.col("t.task_name").alias("task_name"),
             "question_id",
+            "question_type",
+            "question_text",
             "ultima_respuesta",
             "fuente",
             "fecha_respuesta",
