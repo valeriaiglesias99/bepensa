@@ -13,7 +13,6 @@ SILVER = f"{CATALOG}.silver"
 
 # Bronze guarda las marcas de tiempo en UTC; restamos este offset para
 # obtener la hora local.
-TZ_OFFSET_HOURS = 5
-
+TZ_OFFSET_HOURS = 6
 # Rol que identifica a un preventista en bronze_app.users.
 ROLE_PREVENTISTA = 2
