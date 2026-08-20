@@ -13,12 +13,16 @@ def _recognitions(spark: SparkSession) -> DataFrame:
 
 
 def build(spark: SparkSession, visits_silver: DataFrame) -> DataFrame:
-    """silver.images: imágenes activas de visitas del universo silver,
-    con nivel/categoría de escena y datos de reconocimiento."""
-    return (
+    """silver.images: imágenes activas y únicas por original_url."""
+
+    df = (
         spark.table(f"{BRONZE_APP}.images")
         .filter(F.col("is_active") == True)
-        .join(visits_silver.select("visit_id"), on="visit_id", how="inner")
+        .join(
+            visits_silver.select("visit_id"),
+            on="visit_id",
+            how="inner",
+        )
         .select(
             "img_id",
             "visit_id",
@@ -28,6 +32,14 @@ def build(spark: SparkSession, visits_silver: DataFrame) -> DataFrame:
             F.split("schema", ",").getItem(1).alias("scene_category"),
             F.col("recognition_id").alias("event_id"),
         )
-        .join(_recognitions(spark), F.col("event_id") == F.col("event_id_rec"), how="left")
+        .join(
+            _recognitions(spark),
+            F.col("event_id") == F.col("event_id_rec"),
+            how="left",
+        )
         .drop("event_id_rec")
     )
+
+    # Dejar una sola imagen por original_url
+    return df.dropDuplicates(["original_url"])
+
