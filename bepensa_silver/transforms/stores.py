@@ -5,7 +5,7 @@ from ..config import BRONZE_APP
 
 # Mapa de renombres bronze -> silver (antes eran 13 .withColumnRenamed).
 _RENAMES = {
-    "cliente": "client_id",
+    "codbi": "client_id",
     "nomcli": "client_name",
     "nomcolonia": "neighborhood",
     "nomgiro": "business_type",
@@ -31,7 +31,7 @@ def build(spark: SparkSession) -> DataFrame:
         spark.table(f"{BRONZE_APP}.stores")
         .filter(F.col("is_active") == True)
         .select(
-            "store_id", "cliente", "nomcli", "nomcolonia", "nomgiro",
+            "store_id", "codbi", "nomcli", "nomcolonia", "nomgiro",
             "nomjefe", "cedi_name", "tamanio_1", "tamanio_2", "puertas",
             "gerencia_comercial", "gerencia_ventas", "lat", "lon",
         )
